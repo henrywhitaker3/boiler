@@ -6,6 +6,8 @@ import (
 	"sync"
 )
 
+type Version string
+
 type Boiler struct {
 	mu        *sync.Mutex
 	services  map[string]any
@@ -14,6 +16,7 @@ type Boiler struct {
 	isSetup   bool
 	shutMu    *sync.Mutex
 	shutdowns []func(b *Boiler) error
+	version   Version
 }
 
 type maker func(*Boiler) (any, error)
@@ -27,6 +30,14 @@ func New() *Boiler {
 		shutMu:    &sync.Mutex{},
 		shutdowns: []func(b *Boiler) error{},
 	}
+}
+
+func (b *Boiler) SetVersion(v Version) {
+	b.version = v
+}
+
+func (b *Boiler) Version() Version {
+	return b.version
 }
 
 func (b *Boiler) Bootstrap() error {
