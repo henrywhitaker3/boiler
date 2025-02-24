@@ -7,21 +7,23 @@ import (
 )
 
 type Boiler struct {
-	mu       *sync.Mutex
-	services map[string]any
-	makers   map[string]maker
-	setups   []func(*Boiler) error
-	isSetup  bool
+	mu        *sync.Mutex
+	services  map[string]any
+	makers    map[string]maker
+	setups    []func(*Boiler) error
+	isSetup   bool
+	shutdowns []func(b *Boiler) error
 }
 
 type maker func(*Boiler) (any, error)
 
 func New() *Boiler {
 	return &Boiler{
-		mu:       &sync.Mutex{},
-		services: map[string]any{},
-		makers:   map[string]maker{},
-		setups:   []func(*Boiler) error{},
+		mu:        &sync.Mutex{},
+		services:  map[string]any{},
+		makers:    map[string]maker{},
+		setups:    []func(*Boiler) error{},
+		shutdowns: []func(b *Boiler) error{},
 	}
 }
 
@@ -62,6 +64,24 @@ func (b *Boiler) RegisterSetup(f func(b *Boiler) error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.setups = append(b.setups, f)
+}
+
+func (b *Boiler) RegisterShutdown(f func(b *Boiler) error) {
+	b.mu.Lock()
+	b.mu.Unlock()
+	b.shutdowns = append(b.shutdowns, f)
+}
+
+func (b *Boiler) Shutdown() error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	for _, f := range b.shutdowns {
+		if err := f(b); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func Resolve[T any](b *Boiler) (T, error) {
