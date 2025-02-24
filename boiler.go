@@ -27,6 +27,9 @@ func (b *Boiler) Bootstrap() error {
 	defer b.mu.Unlock()
 
 	for name, do := range b.makers {
+		if _, ok := b.services[name]; ok {
+			continue
+		}
 		thing, err := do(b)
 		if err != nil {
 			return fmt.Errorf("%w %s: %w", ErrCouldNotMake, name, err)
