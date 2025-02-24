@@ -12,6 +12,7 @@ type Boiler struct {
 	makers    map[string]maker
 	setups    []func(*Boiler) error
 	isSetup   bool
+	shutMu    *sync.Mutex
 	shutdowns []func(b *Boiler) error
 }
 
@@ -23,6 +24,7 @@ func New() *Boiler {
 		services:  map[string]any{},
 		makers:    map[string]maker{},
 		setups:    []func(*Boiler) error{},
+		shutMu:    &sync.Mutex{},
 		shutdowns: []func(b *Boiler) error{},
 	}
 }
@@ -67,8 +69,8 @@ func (b *Boiler) RegisterSetup(f func(b *Boiler) error) {
 }
 
 func (b *Boiler) RegisterShutdown(f func(b *Boiler) error) {
-	b.mu.Lock()
-	b.mu.Unlock()
+	b.shutMu.Lock()
+	defer b.shutMu.Unlock()
 	b.shutdowns = append(b.shutdowns, f)
 }
 
