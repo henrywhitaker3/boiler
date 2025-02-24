@@ -58,6 +58,12 @@ func (b *Boiler) MustBootstrap() {
 	}
 }
 
+func (b *Boiler) RegisterSetup(f func(b *Boiler) error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.setups = append(b.setups, f)
+}
+
 func Resolve[T any](b *Boiler) (T, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
