@@ -10,6 +10,8 @@ type Boiler struct {
 	mu       *sync.Mutex
 	services map[string]any
 	makers   map[string]maker
+	setups   []func(*Boiler) error
+	isSetup  bool
 }
 
 type maker func(*Boiler) (any, error)
@@ -19,6 +21,7 @@ func New() *Boiler {
 		mu:       &sync.Mutex{},
 		services: map[string]any{},
 		makers:   map[string]maker{},
+		setups:   []func(*Boiler) error{},
 	}
 }
 
@@ -36,6 +39,15 @@ func (b *Boiler) Bootstrap() error {
 		}
 		b.services[name] = thing
 	}
+
+	if !b.isSetup {
+		for _, f := range b.setups {
+			if err := f(b); err != nil {
+				return fmt.Errorf("setup func failed: %w", err)
+			}
+		}
+	}
+	b.isSetup = true
 
 	return nil
 }
