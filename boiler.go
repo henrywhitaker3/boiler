@@ -13,7 +13,7 @@ type Boiler struct {
 	ctx       context.Context
 	mu        *sync.Mutex
 	services  map[string]any
-	makers    map[string]maker
+	makers    []maker
 	setups    []func(*Boiler) error
 	isSetup   bool
 	shutMu    *sync.Mutex
@@ -21,14 +21,17 @@ type Boiler struct {
 	version   Version
 }
 
-type maker func(*Boiler) (any, error)
+type maker struct {
+	name  string
+	maker func(*Boiler) (any, error)
+}
 
 func New(ctx context.Context) *Boiler {
 	return &Boiler{
 		ctx:       ctx,
 		mu:        &sync.Mutex{},
 		services:  map[string]any{},
-		makers:    map[string]maker{},
+		makers:    []maker{},
 		setups:    []func(*Boiler) error{},
 		shutMu:    &sync.Mutex{},
 		shutdowns: []func(b *Boiler) error{},
@@ -48,16 +51,16 @@ func (b *Boiler) Version() Version {
 }
 
 func (b *Boiler) Bootstrap() error {
-	for name, do := range b.makers {
-		if _, ok := b.services[name]; ok {
+	for _, maker := range b.makers {
+		if _, ok := b.services[maker.name]; ok {
 			continue
 		}
-		thing, err := do(b)
+		thing, err := maker.maker(b)
 		if err != nil {
-			return fmt.Errorf("%w %s: %w", ErrCouldNotMake, name, err)
+			return fmt.Errorf("%w %s: %w", ErrCouldNotMake, maker.name, err)
 		}
 		b.mu.Lock()
-		b.services[name] = thing
+		b.services[maker.name] = thing
 		b.mu.Unlock()
 	}
 
@@ -103,6 +106,15 @@ func (b *Boiler) Shutdown() error {
 	return nil
 }
 
+func (b *Boiler) findMaker(name string) (maker, bool) {
+	for _, m := range b.makers {
+		if m.name == name {
+			return m, true
+		}
+	}
+	return maker{}, false
+}
+
 func Resolve[T any](b *Boiler) (T, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -144,12 +156,12 @@ func Fresh[T any](b *Boiler) (T, error) {
 		return empty, err
 	}
 
-	maker, ok := b.makers[name]
+	maker, ok := b.findMaker(name)
 	if !ok {
 		return empty, ErrDoesNotExist
 	}
 
-	svc, err := maker(b)
+	svc, err := maker.maker(b)
 	if err != nil {
 		return empty, fmt.Errorf("%w %s: %w", ErrCouldNotMake, name, err)
 	}
@@ -181,13 +193,16 @@ func Register[T any](b *Boiler, p Provider[T]) error {
 		return fmt.Errorf("generate type name: %w", err)
 	}
 
-	if _, ok := b.makers[name]; ok {
+	if _, ok := b.findMaker(name); ok {
 		return ErrAlreadyExists
 	}
 
-	b.makers[name] = func(b *Boiler) (any, error) {
-		return p(b)
-	}
+	b.makers = append(b.makers, maker{
+		name: name,
+		maker: func(b *Boiler) (any, error) {
+			return p(b)
+		},
+	})
 
 	return nil
 }

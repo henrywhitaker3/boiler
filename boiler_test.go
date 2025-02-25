@@ -1,6 +1,7 @@
 package boiler
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -11,7 +12,7 @@ type Demo struct {
 }
 
 func TestItStoresValues(t *testing.T) {
-	b := New()
+	b := New(context.Background())
 
 	err := Register(b, func(b *Boiler) (Demo, error) {
 		return Demo{
@@ -28,7 +29,7 @@ func TestItStoresValues(t *testing.T) {
 }
 
 func TestItStoresPointers(t *testing.T) {
-	b := New()
+	b := New(context.Background())
 
 	initial := "bongo"
 	err := Register(b, func(b *Boiler) (*Demo, error) {
@@ -46,7 +47,7 @@ func TestItStoresPointers(t *testing.T) {
 }
 
 func TestItMakesFreshItems(t *testing.T) {
-	b := New()
+	b := New(context.Background())
 
 	initial := "bongo"
 	err := Register(b, func(b *Boiler) (*Demo, error) {
@@ -67,7 +68,7 @@ func TestItMakesFreshItems(t *testing.T) {
 }
 
 func TestItErrorsWhenResolvingUnknownType(t *testing.T) {
-	b := New()
+	b := New(context.Background())
 
 	require.Nil(t, b.Bootstrap())
 
@@ -76,7 +77,7 @@ func TestItErrorsWhenResolvingUnknownType(t *testing.T) {
 }
 
 func TestItErrorsWhenFreshingUnknownType(t *testing.T) {
-	b := New()
+	b := New(context.Background())
 
 	require.Nil(t, b.Bootstrap())
 
