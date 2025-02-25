@@ -48,9 +48,6 @@ func (b *Boiler) Version() Version {
 }
 
 func (b *Boiler) Bootstrap() error {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
 	for name, do := range b.makers {
 		if _, ok := b.services[name]; ok {
 			continue
@@ -59,7 +56,9 @@ func (b *Boiler) Bootstrap() error {
 		if err != nil {
 			return fmt.Errorf("%w %s: %w", ErrCouldNotMake, name, err)
 		}
+		b.mu.Lock()
 		b.services[name] = thing
+		b.mu.Unlock()
 	}
 
 	if !b.isSetup {
