@@ -115,7 +115,7 @@ func Resolve[T any](b *Boiler) (T, error) {
 
 	svc, ok := b.services[name]
 	if !ok {
-		return empty, ErrDoesNotExist
+		return empty, fmt.Errorf("%w: %s", ErrDoesNotExist, name)
 	}
 
 	resolved, ok := svc.(T)
