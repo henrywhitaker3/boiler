@@ -1,6 +1,7 @@
 package boiler
 
 import (
+	"context"
 	"fmt"
 	"reflect"
 	"sync"
@@ -9,6 +10,7 @@ import (
 type Version string
 
 type Boiler struct {
+	ctx       context.Context
 	mu        *sync.Mutex
 	services  map[string]any
 	makers    map[string]maker
@@ -21,8 +23,9 @@ type Boiler struct {
 
 type maker func(*Boiler) (any, error)
 
-func New() *Boiler {
+func New(ctx context.Context) *Boiler {
 	return &Boiler{
+		ctx:       ctx,
 		mu:        &sync.Mutex{},
 		services:  map[string]any{},
 		makers:    map[string]maker{},
@@ -30,6 +33,10 @@ func New() *Boiler {
 		shutMu:    &sync.Mutex{},
 		shutdowns: []func(b *Boiler) error{},
 	}
+}
+
+func (b *Boiler) Context() context.Context {
+	return b.ctx
 }
 
 func (b *Boiler) SetVersion(v Version) {
