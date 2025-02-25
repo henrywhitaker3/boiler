@@ -84,3 +84,23 @@ func TestItErrorsWhenFreshingUnknownType(t *testing.T) {
 	_, err := Fresh[Demo](b)
 	require.ErrorIs(t, err, ErrDoesNotExist)
 }
+
+func TestItRegistersNamedServices(t *testing.T) {
+	b := New(context.Background())
+
+	require.Nil(t, RegisterNamed[Demo](b, "bongo", func(*Boiler) (Demo, error) {
+		return Demo{value: "bongo"}, nil
+	}))
+	require.Nil(t, RegisterNamed[Demo](b, "orange", func(*Boiler) (Demo, error) {
+		return Demo{value: "orange"}, nil
+	}))
+
+	require.Nil(t, b.Bootstrap())
+
+	bongo, err := ResolveNamed[Demo](b, "bongo")
+	require.Nil(t, err)
+	require.Equal(t, "bongo", bongo.value)
+	orange, err := ResolveNamed[Demo](b, "orange")
+	require.Nil(t, err)
+	require.Equal(t, "orange", orange.value)
+}

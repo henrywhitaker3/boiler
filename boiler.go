@@ -38,18 +38,24 @@ func New(ctx context.Context) *Boiler {
 	}
 }
 
+// Returns the initial context used to create the boiler instance
 func (b *Boiler) Context() context.Context {
 	return b.ctx
 }
 
+// Set the version number of the application
 func (b *Boiler) SetVersion(v Version) {
 	b.version = v
 }
 
+// Returns the version number of the application
 func (b *Boiler) Version() Version {
 	return b.version
 }
 
+// Bootstrap all the services that have been registered
+//
+// The first time this runs, all of the setups will also run.
 func (b *Boiler) Bootstrap() error {
 	for _, maker := range b.makers {
 		if _, ok := b.services[maker.name]; ok {
@@ -82,12 +88,14 @@ func (b *Boiler) MustBootstrap() {
 	}
 }
 
+// Register a function to be called when the instance is first bootstrapped.
 func (b *Boiler) RegisterSetup(f func(b *Boiler) error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.setups = append(b.setups, f)
 }
 
+// Registers a function to be run when the instances Shutdown() method is called
 func (b *Boiler) RegisterShutdown(f func(b *Boiler) error) {
 	b.shutMu.Lock()
 	defer b.shutMu.Unlock()
@@ -115,6 +123,7 @@ func (b *Boiler) findMaker(name string) (maker, bool) {
 	return maker{}, false
 }
 
+// Resolve a service from the instance
 func Resolve[T any](b *Boiler) (T, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -146,6 +155,32 @@ func MustResolve[T any](b *Boiler) T {
 	return resolved
 }
 
+func ResolveNamed[T any](b *Boiler, name string) (T, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	var empty T
+	svc, ok := b.services[name]
+	if !ok {
+		return empty, fmt.Errorf("%w: %s", ErrDoesNotExist, name)
+	}
+
+	resolved, ok := svc.(T)
+	if !ok {
+		return empty, ErrWrongType
+	}
+	return resolved, nil
+}
+
+func MustResolveNamed[T any](b *Boiler, name string) T {
+	svc, err := ResolveNamed[T](b, name)
+	if err != nil {
+		panic(err)
+	}
+	return svc
+}
+
+// Resolve a new instance of the service
 func Fresh[T any](b *Boiler) (T, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -184,6 +219,7 @@ func MustFresh[T any](b *Boiler) T {
 
 type Provider[T any] func(*Boiler) (T, error)
 
+// Register a service in the container
 func Register[T any](b *Boiler, p Provider[T]) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -194,7 +230,7 @@ func Register[T any](b *Boiler, p Provider[T]) error {
 	}
 
 	if _, ok := b.findMaker(name); ok {
-		return ErrAlreadyExists
+		return fmt.Errorf("%w: %s", ErrAlreadyExists, name)
 	}
 
 	b.makers = append(b.makers, maker{
@@ -208,7 +244,31 @@ func Register[T any](b *Boiler, p Provider[T]) error {
 }
 
 func MustRegister[T any](b *Boiler, p Provider[T]) {
-	if err := Register[T](b, p); err != nil {
+	if err := Register(b, p); err != nil {
+		panic(err)
+	}
+}
+
+func RegisterNamed[T any](b *Boiler, name string, p Provider[T]) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	if _, ok := b.findMaker(name); ok {
+		return fmt.Errorf("%s: %s", ErrAlreadyExists, name)
+	}
+
+	b.makers = append(b.makers, maker{
+		name: name,
+		maker: func(b *Boiler) (any, error) {
+			return p(b)
+		},
+	})
+
+	return nil
+}
+
+func MustResgiterNamed[T any](b *Boiler, name string, p Provider[T]) {
+	if err := RegisterNamed(b, name, p); err != nil {
 		panic(err)
 	}
 }
