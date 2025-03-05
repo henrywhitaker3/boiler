@@ -22,8 +22,9 @@ type Boiler struct {
 }
 
 type maker struct {
-	name  string
-	maker func(*Boiler) (any, error)
+	name    string
+	defered bool
+	maker   func(*Boiler) (any, error)
 }
 
 func New(ctx context.Context) *Boiler {
@@ -58,16 +59,14 @@ func (b *Boiler) Version() Version {
 // The first time this runs, all of the setups will also run.
 func (b *Boiler) Bootstrap() error {
 	for _, maker := range b.makers {
-		if _, ok := b.services[maker.name]; ok {
-			continue
+		if !maker.defered {
+			if _, ok := b.retrieve(maker.name); ok {
+				continue
+			}
+			if err := b.make(maker); err != nil {
+				return err
+			}
 		}
-		thing, err := maker.maker(b)
-		if err != nil {
-			return fmt.Errorf("%w %s: %w", ErrCouldNotMake, maker.name, err)
-		}
-		b.mu.Lock()
-		b.services[maker.name] = thing
-		b.mu.Unlock()
 	}
 
 	if !b.isSetup {
@@ -79,6 +78,17 @@ func (b *Boiler) Bootstrap() error {
 	}
 	b.isSetup = true
 
+	return nil
+}
+
+func (b *Boiler) make(m maker) error {
+	thing, err := m.maker(b)
+	if err != nil {
+		return fmt.Errorf("%w %s: %w", ErrCouldNotMake, m.name, err)
+	}
+	b.mu.Lock()
+	b.services[m.name] = thing
+	b.mu.Unlock()
 	return nil
 }
 
@@ -123,19 +133,30 @@ func (b *Boiler) findMaker(name string) (maker, bool) {
 	return maker{}, false
 }
 
-// Resolve a service from the instance
-func Resolve[T any](b *Boiler) (T, error) {
+func (b *Boiler) retrieve(name string) (any, bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	svc, ok := b.services[name]
+	return svc, ok
+}
 
+// Resolve a service from the instance
+func Resolve[T any](b *Boiler) (T, error) {
 	var empty T
 	name, err := name[T]()
 	if err != nil {
 		return empty, err
 	}
 
-	svc, ok := b.services[name]
+	svc, ok := b.retrieve(name)
 	if !ok {
+		maker, ok := b.findMaker(name)
+		if ok {
+			if err := b.make(maker); err != nil {
+				return empty, err
+			}
+			return Resolve[T](b)
+		}
 		return empty, fmt.Errorf("%w: %s", ErrDoesNotExist, name)
 	}
 
@@ -269,6 +290,61 @@ func RegisterNamed[T any](b *Boiler, name string, p Provider[T]) error {
 
 func MustResgiterNamed[T any](b *Boiler, name string, p Provider[T]) {
 	if err := RegisterNamed(b, name, p); err != nil {
+		panic(err)
+	}
+}
+
+func RegisterDeferred[T any](b *Boiler, p Provider[T]) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	name, err := name[T]()
+	if err != nil {
+		return fmt.Errorf("generate type name: %w", err)
+	}
+
+	if _, ok := b.findMaker(name); ok {
+		return fmt.Errorf("%w: %s", ErrAlreadyExists, name)
+	}
+
+	b.makers = append(b.makers, maker{
+		name:    name,
+		defered: true,
+		maker: func(b *Boiler) (any, error) {
+			return p(b)
+		},
+	})
+
+	return nil
+}
+
+func MustRegisterDeferred[T any](b *Boiler, p Provider[T]) {
+	if err := RegisterDeferred(b, p); err != nil {
+		panic(err)
+	}
+}
+
+func RegisterNamedDefered[T any](b *Boiler, name string, p Provider[T]) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	if _, ok := b.findMaker(name); ok {
+		return fmt.Errorf("%s: %s", ErrAlreadyExists, name)
+	}
+
+	b.makers = append(b.makers, maker{
+		name:    name,
+		defered: true,
+		maker: func(b *Boiler) (any, error) {
+			return p(b)
+		},
+	})
+
+	return nil
+}
+
+func MustResgiterNamedDefered[T any](b *Boiler, name string, p Provider[T]) {
+	if err := RegisterNamedDefered(b, name, p); err != nil {
 		panic(err)
 	}
 }
