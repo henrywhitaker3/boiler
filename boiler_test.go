@@ -2,6 +2,7 @@ package boiler
 
 import (
 	"context"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -88,10 +89,10 @@ func TestItErrorsWhenFreshingUnknownType(t *testing.T) {
 func TestItRegistersNamedServices(t *testing.T) {
 	b := New(context.Background())
 
-	require.Nil(t, RegisterNamed[Demo](b, "bongo", func(*Boiler) (Demo, error) {
+	require.Nil(t, RegisterNamed(b, "bongo", func(*Boiler) (Demo, error) {
 		return Demo{value: "bongo"}, nil
 	}))
-	require.Nil(t, RegisterNamed[Demo](b, "orange", func(*Boiler) (Demo, error) {
+	require.Nil(t, RegisterNamed(b, "orange", func(*Boiler) (Demo, error) {
 		return Demo{value: "orange"}, nil
 	}))
 
@@ -103,4 +104,37 @@ func TestItRegistersNamedServices(t *testing.T) {
 	orange, err := ResolveNamed[Demo](b, "orange")
 	require.Nil(t, err)
 	require.Equal(t, "orange", orange.value)
+}
+
+func TestItRegistersDeferedServices(t *testing.T) {
+	b := New(context.Background())
+
+	called := false
+	require.Nil(t, RegisterDeferred(b, func(*Boiler) (Demo, error) {
+		called = true
+		return Demo{value: "bongo"}, nil
+	}))
+
+	require.Nil(t, b.Bootstrap())
+	require.False(t, called)
+
+	_, err := Resolve[Demo](b)
+	require.Nil(t, err)
+	require.True(t, called)
+}
+
+func TestItReolvesWithoutDeadlocks(t *testing.T) {
+	b := New(context.Background())
+
+	require.Nil(t, Register(b, func(*Boiler) (Demo, error) {
+		return Demo{}, nil
+	}))
+	require.Nil(t, Register(b, func(b *Boiler) (*http.Server, error) {
+		_, err := Resolve[Demo](b)
+		if err != nil {
+			return nil, err
+		}
+		return &http.Server{}, nil
+	}))
+	require.Nil(t, b.Bootstrap())
 }
