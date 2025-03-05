@@ -288,7 +288,7 @@ func RegisterNamed[T any](b *Boiler, name string, p Provider[T]) error {
 	return nil
 }
 
-func MustResgiterNamed[T any](b *Boiler, name string, p Provider[T]) {
+func MustRegisterNamed[T any](b *Boiler, name string, p Provider[T]) {
 	if err := RegisterNamed(b, name, p); err != nil {
 		panic(err)
 	}
@@ -343,7 +343,7 @@ func RegisterNamedDefered[T any](b *Boiler, name string, p Provider[T]) error {
 	return nil
 }
 
-func MustResgiterNamedDefered[T any](b *Boiler, name string, p Provider[T]) {
+func MustRegisterNamedDefered[T any](b *Boiler, name string, p Provider[T]) {
 	if err := RegisterNamedDefered(b, name, p); err != nil {
 		panic(err)
 	}
