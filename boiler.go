@@ -19,6 +19,7 @@ type Boiler struct {
 	shutMu    *sync.Mutex
 	shutdowns []func(b *Boiler) error
 	version   Version
+	obs       *observer
 }
 
 type maker struct {
@@ -36,6 +37,7 @@ func New(ctx context.Context) *Boiler {
 		setups:    []func(*Boiler) error{},
 		shutMu:    &sync.Mutex{},
 		shutdowns: []func(b *Boiler) error{},
+		obs:       &observer{},
 	}
 }
 
@@ -52,6 +54,10 @@ func (b *Boiler) SetVersion(v Version) {
 // Returns the version number of the application
 func (b *Boiler) Version() Version {
 	return b.version
+}
+
+func (b *Boiler) SetLogger(l Logger) {
+	b.obs.logger = l
 }
 
 // Bootstrap all the services that have been registered
@@ -148,6 +154,8 @@ func Resolve[T any](b *Boiler) (T, error) {
 		return empty, err
 	}
 
+	b.obs.observeResolve(name)
+
 	svc, ok := b.retrieve(name)
 	if !ok {
 		maker, ok := b.findMaker(name)
@@ -179,6 +187,8 @@ func MustResolve[T any](b *Boiler) T {
 func ResolveNamed[T any](b *Boiler, name string) (T, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+
+	b.obs.observeResolve(name)
 
 	var empty T
 	svc, ok := b.services[name]
@@ -250,6 +260,8 @@ func Register[T any](b *Boiler, p Provider[T]) error {
 		return fmt.Errorf("generate type name: %w", err)
 	}
 
+	b.obs.observeRegister(name)
+
 	if _, ok := b.findMaker(name); ok {
 		return fmt.Errorf("%w: %s", ErrAlreadyExists, name)
 	}
@@ -277,6 +289,8 @@ func RegisterNamed[T any](b *Boiler, name string, p Provider[T]) error {
 	if _, ok := b.findMaker(name); ok {
 		return fmt.Errorf("%s: %s", ErrAlreadyExists, name)
 	}
+
+	b.obs.observeRegister(name)
 
 	b.makers = append(b.makers, maker{
 		name: name,
