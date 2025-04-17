@@ -106,6 +106,26 @@ func TestItRegistersNamedServices(t *testing.T) {
 	require.Equal(t, "orange", orange.value)
 }
 
+func TestItRegistersDeferredNamedServices(t *testing.T) {
+	b := New(context.Background())
+
+	require.Nil(t, RegisterNamedDefered(b, "bongo", func(*Boiler) (Demo, error) {
+		return Demo{value: "bongo"}, nil
+	}))
+	require.Nil(t, RegisterNamedDefered(b, "orange", func(*Boiler) (Demo, error) {
+		return Demo{value: "orange"}, nil
+	}))
+
+	require.Nil(t, b.Bootstrap())
+
+	bongo, err := ResolveNamed[Demo](b, "bongo")
+	require.Nil(t, err)
+	require.Equal(t, "bongo", bongo.value)
+	orange, err := ResolveNamed[Demo](b, "orange")
+	require.Nil(t, err)
+	require.Equal(t, "orange", orange.value)
+}
+
 func TestItRegistersDeferedServices(t *testing.T) {
 	b := New(context.Background())
 

@@ -185,14 +185,18 @@ func MustResolve[T any](b *Boiler) T {
 }
 
 func ResolveNamed[T any](b *Boiler, name string) (T, error) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
 	b.obs.observeResolve(name)
 
 	var empty T
-	svc, ok := b.services[name]
+	svc, ok := b.retrieve(name)
 	if !ok {
+		maker, ok := b.findMaker(name)
+		if ok {
+			if err := b.make(maker); err != nil {
+				return empty, err
+			}
+			return ResolveNamed[T](b, name)
+		}
 		return empty, fmt.Errorf("%w: %s", ErrDoesNotExist, name)
 	}
 
