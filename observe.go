@@ -21,6 +21,12 @@ func (o *observer) observeRegister(kind string) {
 	}
 }
 
+func (o *observer) observeRegisterDeferred(kind string) {
+	if o.logger != nil {
+		o.logger.Debug("registering deferred service", "idnetifier", kind)
+	}
+}
+
 func (o *observer) observeResolve(kind string) {
 	if o.logger != nil {
 		o.logger.Debug("resolving service", "idnetifier", kind)

@@ -321,6 +321,8 @@ func RegisterDeferred[T any](b *Boiler, p Provider[T]) error {
 		return fmt.Errorf("generate type name: %w", err)
 	}
 
+	b.obs.observeRegisterDeferred(name)
+
 	if _, ok := b.findMaker(name); ok {
 		return fmt.Errorf("%w: %s", ErrAlreadyExists, name)
 	}
@@ -349,6 +351,8 @@ func RegisterNamedDefered[T any](b *Boiler, name string, p Provider[T]) error {
 	if _, ok := b.findMaker(name); ok {
 		return fmt.Errorf("%s: %s", ErrAlreadyExists, name)
 	}
+
+	b.obs.observeRegisterDeferred(name)
 
 	b.makers = append(b.makers, maker{
 		name:    name,
