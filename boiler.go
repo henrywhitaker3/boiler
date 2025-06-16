@@ -69,6 +69,7 @@ func (b *Boiler) Bootstrap() error {
 			if _, ok := b.retrieve(maker.name); ok {
 				continue
 			}
+			b.obs.logger.Info("bootstrapping service", "service", maker.name)
 			if err := b.make(maker); err != nil {
 				return err
 			}
