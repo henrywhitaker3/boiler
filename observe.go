@@ -15,6 +15,12 @@ func newObserver(l Logger) *observer {
 	}
 }
 
+func (o *observer) observeBootstrap(kind string) {
+	if o.logger != nil {
+		o.logger.Info("bootstrapping service", "idnetifier", kind)
+	}
+}
+
 func (o *observer) observeRegister(kind string) {
 	if o.logger != nil {
 		o.logger.Debug("registering service", "idnetifier", kind)
