@@ -15,7 +15,7 @@ type Demo struct {
 func TestItStoresValues(t *testing.T) {
 	b := New(context.Background())
 
-	err := Register(b, func(b *Boiler) (Demo, error) {
+	err := b.Register(func(b *Boiler) (Demo, error) {
 		return Demo{
 			value: "apple",
 		}, nil
@@ -24,7 +24,7 @@ func TestItStoresValues(t *testing.T) {
 
 	require.Nil(t, b.Bootstrap())
 
-	resolved, err := Resolve[Demo](b)
+	resolved, err := b.Resolve[Demo]()
 	require.Nil(t, err)
 	require.Equal(t, "apple", resolved.value)
 }
@@ -33,7 +33,7 @@ func TestItStoresPointers(t *testing.T) {
 	b := New(context.Background())
 
 	initial := "bongo"
-	err := Register(b, func(b *Boiler) (*Demo, error) {
+	err := b.Register(func(b *Boiler) (*Demo, error) {
 		return &Demo{
 			value: initial,
 		}, nil
@@ -42,7 +42,7 @@ func TestItStoresPointers(t *testing.T) {
 	require.Nil(t, b.Bootstrap())
 
 	initial = "fish"
-	resolved, err := Resolve[*Demo](b)
+	resolved, err := b.Resolve[*Demo]()
 	require.Nil(t, err)
 	require.Equal(t, "bongo", resolved.value)
 }
@@ -51,7 +51,7 @@ func TestItMakesFreshItems(t *testing.T) {
 	b := New(context.Background())
 
 	initial := "bongo"
-	err := Register(b, func(b *Boiler) (*Demo, error) {
+	err := b.Register(func(b *Boiler) (*Demo, error) {
 		return &Demo{
 			value: initial,
 		}, nil
@@ -60,10 +60,10 @@ func TestItMakesFreshItems(t *testing.T) {
 	require.Nil(t, b.Bootstrap())
 
 	initial = "fish"
-	resolved, err := Resolve[*Demo](b)
+	resolved, err := b.Resolve[*Demo]()
 	require.Nil(t, err)
 	require.Equal(t, "bongo", resolved.value)
-	fresh, err := Fresh[*Demo](b)
+	fresh, err := b.Fresh[*Demo]()
 	require.Nil(t, err)
 	require.Equal(t, "fish", fresh.value)
 }
@@ -73,7 +73,7 @@ func TestItErrorsWhenResolvingUnknownType(t *testing.T) {
 
 	require.Nil(t, b.Bootstrap())
 
-	_, err := Resolve[Demo](b)
+	_, err := b.Resolve[Demo]()
 	require.ErrorIs(t, err, ErrDoesNotExist)
 }
 
@@ -82,26 +82,26 @@ func TestItErrorsWhenFreshingUnknownType(t *testing.T) {
 
 	require.Nil(t, b.Bootstrap())
 
-	_, err := Fresh[Demo](b)
+	_, err := b.Fresh[Demo]()
 	require.ErrorIs(t, err, ErrDoesNotExist)
 }
 
 func TestItRegistersNamedServices(t *testing.T) {
 	b := New(context.Background())
 
-	require.Nil(t, RegisterNamed(b, "bongo", func(*Boiler) (Demo, error) {
+	require.Nil(t, b.RegisterNamed("bongo", func(*Boiler) (Demo, error) {
 		return Demo{value: "bongo"}, nil
 	}))
-	require.Nil(t, RegisterNamed(b, "orange", func(*Boiler) (Demo, error) {
+	require.Nil(t, b.RegisterNamed("orange", func(*Boiler) (Demo, error) {
 		return Demo{value: "orange"}, nil
 	}))
 
 	require.Nil(t, b.Bootstrap())
 
-	bongo, err := ResolveNamed[Demo](b, "bongo")
+	bongo, err := b.ResolveNamed[Demo]("bongo")
 	require.Nil(t, err)
 	require.Equal(t, "bongo", bongo.value)
-	orange, err := ResolveNamed[Demo](b, "orange")
+	orange, err := b.ResolveNamed[Demo]("orange")
 	require.Nil(t, err)
 	require.Equal(t, "orange", orange.value)
 }
@@ -109,19 +109,19 @@ func TestItRegistersNamedServices(t *testing.T) {
 func TestItRegistersDeferredNamedServices(t *testing.T) {
 	b := New(context.Background())
 
-	require.Nil(t, RegisterNamedDefered(b, "bongo", func(*Boiler) (Demo, error) {
+	require.Nil(t, b.RegisterNamedDefered("bongo", func(*Boiler) (Demo, error) {
 		return Demo{value: "bongo"}, nil
 	}))
-	require.Nil(t, RegisterNamedDefered(b, "orange", func(*Boiler) (Demo, error) {
+	require.Nil(t, b.RegisterNamedDefered("orange", func(*Boiler) (Demo, error) {
 		return Demo{value: "orange"}, nil
 	}))
 
 	require.Nil(t, b.Bootstrap())
 
-	bongo, err := ResolveNamed[Demo](b, "bongo")
+	bongo, err := b.ResolveNamed[Demo]("bongo")
 	require.Nil(t, err)
 	require.Equal(t, "bongo", bongo.value)
-	orange, err := ResolveNamed[Demo](b, "orange")
+	orange, err := b.ResolveNamed[Demo]("orange")
 	require.Nil(t, err)
 	require.Equal(t, "orange", orange.value)
 }
@@ -130,7 +130,7 @@ func TestItRegistersDeferedServices(t *testing.T) {
 	b := New(context.Background())
 
 	called := false
-	require.Nil(t, RegisterDeferred(b, func(*Boiler) (Demo, error) {
+	require.Nil(t, b.RegisterDeferred(func(*Boiler) (Demo, error) {
 		called = true
 		return Demo{value: "bongo"}, nil
 	}))
@@ -138,7 +138,7 @@ func TestItRegistersDeferedServices(t *testing.T) {
 	require.Nil(t, b.Bootstrap())
 	require.False(t, called)
 
-	_, err := Resolve[Demo](b)
+	_, err := b.Resolve[Demo]()
 	require.Nil(t, err)
 	require.True(t, called)
 }
@@ -146,11 +146,11 @@ func TestItRegistersDeferedServices(t *testing.T) {
 func TestItReolvesWithoutDeadlocks(t *testing.T) {
 	b := New(context.Background())
 
-	require.Nil(t, Register(b, func(*Boiler) (Demo, error) {
+	require.Nil(t, b.Register(func(*Boiler) (Demo, error) {
 		return Demo{}, nil
 	}))
-	require.Nil(t, Register(b, func(b *Boiler) (*http.Server, error) {
-		_, err := Resolve[Demo](b)
+	require.Nil(t, b.Register(func(b *Boiler) (*http.Server, error) {
+		_, err := b.Resolve[Demo]()
 		if err != nil {
 			return nil, err
 		}

@@ -148,7 +148,7 @@ func (b *Boiler) retrieve(name string) (any, bool) {
 }
 
 // Resolve a service from the instance
-func Resolve[T any](b *Boiler) (T, error) {
+func (b *Boiler) Resolve[T any]() (T, error) {
 	var empty T
 	name, err := name[T]()
 	if err != nil {
@@ -164,7 +164,7 @@ func Resolve[T any](b *Boiler) (T, error) {
 			if err := b.make(maker); err != nil {
 				return empty, err
 			}
-			return Resolve[T](b)
+			return b.Resolve[T]()
 		}
 		return empty, fmt.Errorf("%w: %s", ErrDoesNotExist, name)
 	}
@@ -177,15 +177,15 @@ func Resolve[T any](b *Boiler) (T, error) {
 	return resolved, nil
 }
 
-func MustResolve[T any](b *Boiler) T {
-	resolved, err := Resolve[T](b)
+func (b *Boiler) MustResolve[T any]() T {
+	resolved, err := b.Resolve[T]()
 	if err != nil {
 		panic(err)
 	}
 	return resolved
 }
 
-func ResolveNamed[T any](b *Boiler, name string) (T, error) {
+func (b *Boiler) ResolveNamed[T any](name string) (T, error) {
 	b.obs.observeResolve(name)
 
 	var empty T
@@ -196,7 +196,7 @@ func ResolveNamed[T any](b *Boiler, name string) (T, error) {
 			if err := b.make(maker); err != nil {
 				return empty, err
 			}
-			return ResolveNamed[T](b, name)
+			return b.ResolveNamed[T](name)
 		}
 		return empty, fmt.Errorf("%w: %s", ErrDoesNotExist, name)
 	}
@@ -208,8 +208,8 @@ func ResolveNamed[T any](b *Boiler, name string) (T, error) {
 	return resolved, nil
 }
 
-func MustResolveNamed[T any](b *Boiler, name string) T {
-	svc, err := ResolveNamed[T](b, name)
+func (b *Boiler) MustResolveNamed[T any](name string) T {
+	svc, err := b.ResolveNamed[T](name)
 	if err != nil {
 		panic(err)
 	}
@@ -217,7 +217,7 @@ func MustResolveNamed[T any](b *Boiler, name string) T {
 }
 
 // Resolve a new instance of the service
-func Fresh[T any](b *Boiler) (T, error) {
+func (b *Boiler) Fresh[T any]() (T, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -245,8 +245,8 @@ func Fresh[T any](b *Boiler) (T, error) {
 	return resolved, nil
 }
 
-func MustFresh[T any](b *Boiler) T {
-	resolved, err := Fresh[T](b)
+func (b *Boiler) MustFresh[T any]() T {
+	resolved, err := b.Fresh[T]()
 	if err != nil {
 		panic(err)
 	}
@@ -256,7 +256,7 @@ func MustFresh[T any](b *Boiler) T {
 type Provider[T any] func(*Boiler) (T, error)
 
 // Register a service in the container
-func Register[T any](b *Boiler, p Provider[T]) error {
+func (b *Boiler) Register[T any](p Provider[T]) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -281,13 +281,13 @@ func Register[T any](b *Boiler, p Provider[T]) error {
 	return nil
 }
 
-func MustRegister[T any](b *Boiler, p Provider[T]) {
-	if err := Register(b, p); err != nil {
+func (b *Boiler) MustRegister[T any](p Provider[T]) {
+	if err := b.Register(p); err != nil {
 		panic(err)
 	}
 }
 
-func RegisterNamed[T any](b *Boiler, name string, p Provider[T]) error {
+func (b *Boiler) RegisterNamed[T any](name string, p Provider[T]) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -307,13 +307,13 @@ func RegisterNamed[T any](b *Boiler, name string, p Provider[T]) error {
 	return nil
 }
 
-func MustRegisterNamed[T any](b *Boiler, name string, p Provider[T]) {
-	if err := RegisterNamed(b, name, p); err != nil {
+func (b *Boiler) MustRegisterNamed[T any](name string, p Provider[T]) {
+	if err := b.RegisterNamed(name, p); err != nil {
 		panic(err)
 	}
 }
 
-func RegisterDeferred[T any](b *Boiler, p Provider[T]) error {
+func (b *Boiler) RegisterDeferred[T any](p Provider[T]) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -339,13 +339,13 @@ func RegisterDeferred[T any](b *Boiler, p Provider[T]) error {
 	return nil
 }
 
-func MustRegisterDeferred[T any](b *Boiler, p Provider[T]) {
-	if err := RegisterDeferred(b, p); err != nil {
+func (b *Boiler) MustRegisterDeferred[T any](p Provider[T]) {
+	if err := b.RegisterDeferred(p); err != nil {
 		panic(err)
 	}
 }
 
-func RegisterNamedDefered[T any](b *Boiler, name string, p Provider[T]) error {
+func (b *Boiler) RegisterNamedDefered[T any](name string, p Provider[T]) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -366,8 +366,8 @@ func RegisterNamedDefered[T any](b *Boiler, name string, p Provider[T]) error {
 	return nil
 }
 
-func MustRegisterNamedDefered[T any](b *Boiler, name string, p Provider[T]) {
-	if err := RegisterNamedDefered(b, name, p); err != nil {
+func (b *Boiler) MustRegisterNamedDefered[T any](name string, p Provider[T]) {
+	if err := b.RegisterNamedDefered(name, p); err != nil {
 		panic(err)
 	}
 }
